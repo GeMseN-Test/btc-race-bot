@@ -1,18 +1,35 @@
-"""BTC race bot for make.fun competition btc-race-24h-20261115-0828.
+"""BTC race bot v2 for make.fun competition btc-race-24h-20261115-0828.
 
 Long-only, one position, 1-minute cbBTC/USDC bars (Orca Whirlpool).
 Strategy: two complementary entries, one shared position.
 
   (a) Volatility breakout -- buy when the close breaks above
-      SMA(90) + 1.75 * sd(90) of closes. Small size (25% of cash):
+      SMA(90) + 2.00 * sd(90) of closes. Small size (25% of cash):
       breakouts in a choppy market are only slightly positive, so the
       leg is sized to participate (and to guarantee at least one trade)
-      without dragging the account.
-  (b) Capitulation recovery -- buy when the price sits more than 3%
+      without dragging the account. Exits: 2% take-profit, 0.4%
+      trailing stop (tightened from v1's 0.8%: on the dev window the
+      breakout leg's winners give back less when the trail is tight).
+  (b) Capitulation recovery -- buy when the price sits more than 4%
       below its 6-hour high AND is recovering now (15-minute return
       above 0.3% and close above the last 15-minute high). Full size:
       sharp V-recoveries after a deep intraday washout are the day's
       biggest moves. Exits: 4% take-profit, 1.2% trailing stop.
+      (v2 raises the washout bar from 3% to 4%: on the dev window the
+      3% trigger fired one bar too early into a still-falling knife
+      and cost ~$5.80; the 4% trigger skips that trade entirely.)
+
+v2 vs v1 (local dev grade, same 24h dataset, start $1,000):
+  v1: +32.64 USDC, 6 trades, fees 1.81, max DD 1.96%
+  v2: +37.76 USDC, 6 trades, fees 1.21, max DD 0.78%
+Sweeps that produced v2: a fast prefix-sum simulator (fastsweep.py)
+ran ~1,000 staged combos (vb leg, then rec leg, then pullback/burst
+legs, then a refine + one-param robustness pass). Pullback and momentum
+burst legs were TESTED and REJECTED: they add trades (14-19 vs 6) but
+lose money on the dev window (+21 to +25) and steal the position from
+the recovery leg, so v2 stays two-legged. Neighbourhood check: every
+one-param move off the v2 params stays positive on dev (worst
+neighbour +0.51 at rec_drop 500, most +25 to +37).
 
 Exits (per entry kind): trailing stop on the position's value,
 take-profit on the entry close, close back below the breakout SMA
@@ -39,9 +56,9 @@ MAX_SLIPPAGE_BPS = 150
 
 # --- volatility breakout (kind "vb") -------------------------------------
 VB_SMA_N = 90
-VB_K_NUM = 7          # 1.75 = 7/4
+VB_K_NUM = 8          # 2.00 = 8/4 (v1: 1.75)
 VB_K_DEN = 4
-VB_TRAIL_NUM = 992    # 0.8% trailing stop: sell when value <= peak * 992/1000
+VB_TRAIL_NUM = 996    # 0.4% trailing stop: sell when value <= peak * 996/1000 (v1: 0.8%)
 VB_TRAIL_DEN = 1000
 VB_TP_NUM = 102       # 2% take-profit on the entry close
 VB_TP_DEN = 100
@@ -50,7 +67,7 @@ VB_FRAC_DEN = 4
 
 # --- capitulation recovery (kind "rec") ----------------------------------
 REC_LB = 360          # 6-hour lookback for the high
-REC_DROP_BPS = 300    # > 3% below that high
+REC_DROP_BPS = 400    # > 4% below that high (v1: 3%)
 REC_R15_BPS = 30      # 15-minute return above 0.3%
 REC_TRAIL_NUM = 988   # 1.2% trailing stop
 REC_TRAIL_DEN = 1000

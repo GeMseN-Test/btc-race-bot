@@ -28,29 +28,29 @@ stdin/stdout (newline-delimited JSON) via the vendored shim in
 Two complementary entries, one shared position:
 
 1. **Volatility breakout** — buy when the close breaks above
-   SMA(90) + 1.75·sd(90). Small size (25% of cash): breakouts in a
+   SMA(90) + 2.00·sd(90). Small size (25% of cash): breakouts in a
    choppy market are only slightly positive, so the leg is sized to
    participate (and to guarantee at least one trade) without dragging
    the account.
-2. **Capitulation recovery** — buy when the price sits more than 3%
+2. **Capitulation recovery** — buy when the price sits more than 4%
    below its 6-hour high *and* is recovering now (15-minute return
    above 0.3%, close above the last 15-minute high). Full size:
    sharp V-recoveries after a deep intraday washout are the day's
    biggest moves.
 
-Exits per entry kind: trailing stop (0.8% breakout / 1.2% recovery),
+Exits per entry kind: trailing stop (0.4% breakout / 1.2% recovery),
 take-profit (2% / 4% on the entry close), close back below the
 breakout SMA (breakout leg), or 240 bars max hold.
 
 ## Dev-window results (local replay, exact fill model)
 
-| | |
-|---|---|
-| Net PnL | **+32.64 USDC** on $1,000 start |
-| Trades | 6 (3 round trips) |
-| Fees | 1.81 USDC |
-| Max drawdown | 1.96% (guardrail: 25%) |
-| Runtime | ~0.2 s for 1,440 bars |
+| | v2 (current) | v1 |
+|---|---|---|
+| Net PnL | **+37.76 USDC** on $1,000 start | +32.64 USDC |
+| Trades | 6 (3 round trips) | 6 |
+| Fees | 1.21 USDC | 1.81 USDC |
+| Max drawdown | 0.78% (guardrail: 25%) | 1.96% |
+| Runtime | ~1 s for 1,440 bars | ~0.2 s |
 
 The local grader (`../grader.py`, not part of the entry) mirrors the
 kit's fill model in exact integer arithmetic (fee 4 bps, slippage
@@ -63,12 +63,13 @@ buy-and-hold reproduces the official score exactly
 ## Robustness
 
 The dev window is one choppy -4% day, so the parameters were picked
-for a plateau, not a peak: all 48 nearby parameter combinations
-(volatility k 1.5–2.0, drop threshold 300–350 bps, recovery
-take-profit 3.5–4.5%, breakout size 25–50%) end positive on the dev
-window (+14.38 to +37.18 USDC). Sub-window checks (three 6-hour
-slices) give -0.70 / +16.67 / +1.40 USDC, and the time-reversed
-(uptrend) window gives +7.22 USDC. See STRATEGY.md.
+for a plateau, not a peak: every one-param move off the v2 params
+stays positive on the dev window (worst neighbour +0.51 at a 500 bps
+drop threshold; most sit at +25 to +37.76 USDC). Pullback and
+momentum-burst legs were tested and rejected — they add trades but
+lose money on dev. Sub-window checks (three 6-hour slices) give
+-0.70 / +16.67 / +1.40 USDC, and the time-reversed (uptrend) window
+gives +7.22 USDC. See STRATEGY.md.
 
 ## Determinism
 
